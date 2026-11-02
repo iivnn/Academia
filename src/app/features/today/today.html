@@ -1,0 +1,86 @@
+<div class="title-row"><h1>Hoje</h1>@if (store.ready()) { <span class="save-state" role="status">{{ store.saving() ? 'Salvando…' : store.error() ? 'Alterações não salvas' : 'Salvo neste aparelho' }}</span> }</div>
+@if (store.error()) { <div class="notice notice--danger" role="alert">{{ store.error() }} <button appButton variant="ghost" (click)="store.ready() ? store.retry() : store.load()">Tentar novamente</button></div> }
+@if (message()) { <p class="notice notice--danger" role="alert">{{ message() }}</p> }
+@if (!store.ready()) {
+  <p role="status">Carregando seu treino…</p>
+} @else if (completed(); as finished) {
+  @if (summary(); as result) {
+    <app-panel tone="gold"><p class="eyebrow">TREINO CONCLUÍDO</p><h2>{{ finished.workoutName }}</h2><p class="muted">{{ duration(finished) }} de treino · {{ finished.exercises.length }} {{ finished.exercises.length === 1 ? 'exercício' : 'exercícios' }}</p>
+      <div class="summary-grid"><div><span>Último equivalente</span><strong>{{ result.versusLast }}</strong></div><div><span>{{ result.count ? 'Média de ' + result.count + (result.count === 1 ? ' treino' : ' treinos') : 'Média recente' }}</span><strong>{{ result.versusAverage }}</strong></div></div>
+      @if (!result.count) { <p class="notice">Este treino é sua primeira referência. As comparações aparecem quando você repetir a mesma rotina e tipos de exercício e, na musculação, a mesma quantidade de séries.</p> }
+    </app-panel>
+    <div class="stack summary-details">
+      @for (row of result.rows; track $index) {
+        <app-panel><h3>{{ row.name }}</h3>@if (row.cardio; as cardio) { <p class="eyebrow">CARDIO · DURAÇÃO</p><p class="cardio-summary-time">{{ format(cardio.seconds) }}</p>@if (cardio.lastSeconds !== undefined) { <p class="small muted">Último treino: {{ format(cardio.lastSeconds) }}</p> } @else { <p class="small muted">Primeiro registro de duração.</p> } @if (cardio.averageSeconds !== undefined) { <p class="small muted">Média recente: {{ format(cardio.averageSeconds) }}</p> }<p class="small muted">Mais tempo não significa, por si só, melhor desempenho.</p> } @else { <p><strong>{{ row.current.weight | number:'1.0-2' }} kg</strong> de carga média por série · <strong>{{ row.current.reps }}</strong> repetições no total</p>
+          <div class="comparison-line"><span>Último treino</span><app-badge [tone]="row.versusLast === 'Melhor' ? 'green' : row.versusLast === 'Abaixo' ? 'danger' : 'muted'">{{ row.versusLast }}</app-badge></div>
+          @if (row.last) { <p class="muted small">Antes: {{ row.last.weight | number:'1.0-2' }} kg/série · {{ row.last.reps }} rep. no total</p> }
+          <div class="comparison-line"><span>Média recente</span><app-badge [tone]="row.versusAverage === 'Melhor' ? 'green' : row.versusAverage === 'Abaixo' ? 'danger' : 'muted'">{{ row.versusAverage }}</app-badge></div>
+          @if (row.average) { <p class="muted small">{{ row.average.weight | number:'1.0-2' }} kg/série · {{ row.average.reps | number:'1.0-1' }} rep. no total</p> }
+        }</app-panel>
+      }
+    </div>
+    <p class="muted small">Referência: até os últimos 3 treinos equivalentes. Na musculação, mais carga com menos repetições, ou resultados diferentes entre exercícios, são classificados como resultado misto. Cardio é acompanhado pela duração, sem entrar nessa classificação. Os números descrevem o registro, sem avaliar sua condição física.</p>
+    <button appButton class="full" [disabled]="store.saving() || !!store.error()" (click)="dismissSummary()">Ver próximo treino</button>
+  }
+} @else if (active(); as session) {
+  <div class="session-heading"><div><p class="eyebrow">EM ANDAMENTO</p><h2>{{ session.workoutName }}</h2></div><div class="clock"><span>DURAÇÃO TOTAL</span><strong aria-label="Tempo decorrido">{{ format(elapsed()) }}</strong></div></div>
+  <app-progress label="Progresso do treino" [value]="progress()" />
+  @if (session.restUntil) {
+    <div class="rest-box"><div><span>{{ rest() > 0 ? 'DESCANSO' : 'DESCANSO CONCLUÍDO' }}</span><strong>{{ format(rest()) }}</strong></div><button appButton variant="ghost" (click)="store.skipRest()">{{ rest() > 0 ? 'Pular descanso' : 'Continuar' }}</button></div>
+  }
+  <nav class="exercise-navigation" aria-label="Exercícios do treino">
+    <button type="button" [disabled]="session.currentExercise === 0 || working()" (click)="navigate(session.currentExercise - 1)"><small>← ANTERIOR</small><span>{{ session.exercises[session.currentExercise - 1]?.name || 'Início' }}</span></button>
+    <div><small>EXERCÍCIO</small><strong>{{ session.currentExercise + 1 }} / {{ session.exercises.length }}</strong></div>
+    <button type="button" [disabled]="isLast() || working()" (click)="navigate(session.currentExercise + 1)"><small>PRÓXIMO →</small><span>{{ session.exercises[session.currentExercise + 1]?.name || 'Final' }}</span></button>
+  </nav>
+  @if (deferred().length) {
+    <section class="deferred-box" aria-label="Exercícios para fazer depois"><p class="eyebrow">PARA FAZER DEPOIS · {{ deferred().length }}</p><p class="muted small">Estes exercícios continuam pendentes. Volte quando o equipamento estiver livre.</p><div class="deferred-list">@for (item of deferred(); track item.exercise.id) { <button appButton variant="ghost" [disabled]="working()" (click)="navigate(item.index)" [attr.aria-label]="'Retomar ' + item.exercise.name">↩ {{ item.exercise.name }}</button> }</div></section>
+  }
+  <details class="session-list"><summary>Todos os exercícios · {{ pendingCount() }} {{ pendingCount() === 1 ? 'pendente' : 'pendentes' }}</summary><div>@for (entry of session.exercises; track entry.id; let i = $index) { <button type="button" [disabled]="working()" [attr.aria-current]="i === session.currentExercise ? 'step' : null" (click)="navigate(i)"><span>{{ i + 1 }}. {{ entry.name }}</span><small>{{ done(entry) ? '✓ Concluído' : i === session.currentExercise ? 'Em andamento' : entry.deferred ? 'Para depois' : 'Pendente' }}</small></button> }</div></details>
+  @if (exercise(); as item) {
+    <app-panel tone="gold"><div class="between"><h2>{{ item.name }}</h2><app-badge>{{ item.kind === 'cardio' ? 'Cardio' : item.muscle }}</app-badge></div>@if (item.kind !== 'cardio') { <p class="muted small">{{ item.sets }} {{ item.sets === 1 ? 'série' : 'séries' }} · descanso de {{ item.restSeconds }} segundos</p> }
+      @if (!exerciseDone()) { <div class="defer-action"><button appButton variant="ghost" class="full" [disabled]="working() || nextPending() < 0" (click)="defer()">↪ Fazer depois</button><p class="muted small">{{ nextPending() < 0 ? 'Só falta concluir este exercício. Ele continua pendente até você terminar.' : 'Equipamento ocupado? Siga para outro exercício e retome este depois. Suas séries ficam salvas.' }}</p></div> }
+      @if (item.kind !== 'cardio') { @if (reference(); as last) { <div class="last-reference"><strong>Última vez</strong>@for (record of last.records; track $index) { <span>{{ record.weight }} kg × {{ record.reps }} rep.</span> }</div> } @else { <p class="notice">Primeiro registro deste exercício nesta rotina. Ele será sua referência.</p> }
+      <div class="sets">
+        @for (record of item.records; track $index; let i = $index) {
+          <section class="set" [class.current]="i === currentSet()" [attr.aria-label]="'Série ' + (i + 1)">
+            <div class="between"><h3>Série {{ i + 1 }} de {{ item.sets }}</h3>@if (record.done) { <app-badge>✓ Concluída</app-badge> }</div>
+            @if (record.done) { <div class="between"><p class="set-result">{{ record.weight }} kg <span>×</span> {{ record.reps }} rep.</p><button appButton variant="ghost" [disabled]="working()" (click)="store.reopenSet(session.currentExercise, i)">Corrigir</button></div> }
+            @else if (i === currentSet()) {
+              <div class="set-fields"><app-field [controlId]="'weight-' + item.id + '-' + i" label="Carga (kg)"><input [id]="'weight-' + item.id + '-' + i" type="text" inputmode="decimal" autocomplete="off" maxlength="12" placeholder="0" [value]="record.weight" (input)="store.draft(session.currentExercise, i, 'weight', $any($event.target).value)"></app-field><app-field [controlId]="'reps-' + item.id + '-' + i" label="Repetições"><input [id]="'reps-' + item.id + '-' + i" type="text" inputmode="numeric" autocomplete="off" maxlength="5" placeholder="0" [value]="record.reps" (input)="store.draft(session.currentExercise, i, 'reps', $any($event.target).value)"></app-field></div>
+              <button appButton class="full" [disabled]="working() || rest() > 0" (click)="completeSet(i)">{{ rest() > 0 ? 'Aguarde ou pule o descanso' : '✓ Concluir série' }}</button>
+            } @else { <p class="muted small">Aguardando a série anterior.</p> }
+          </section>
+        }
+      </div>
+      } @else {
+        <section class="cardio-timer" aria-label="Cronômetro do cardio">
+          <p class="eyebrow">{{ exerciseDone() ? 'CARDIO CONCLUÍDO' : item.cardio?.startedAt != null ? 'CARDIO EM ANDAMENTO' : cardioSeconds() > 0 ? 'CARDIO PAUSADO' : 'PRONTO PARA COMEÇAR' }}</p>
+          <strong class="cardio-time" aria-label="Tempo de cardio">{{ format(cardioSeconds()) }}</strong>
+          @if (reference(); as last) { <p class="muted small">Última vez: {{ format((last.cardio?.elapsedMs || 0) / 1000) }}</p> }
+          <div class="cardio-actions">
+            @if (item.cardio?.startedAt != null) {
+              <button appButton variant="ghost" [disabled]="working()" (click)="cardio('pause')">Pausar</button>
+              <button appButton [disabled]="working()" (click)="cardio('finish')">Encerrar cardio</button>
+            } @else {
+              <button appButton [disabled]="working() || rest() > 0" (click)="cardio('start')">{{ exerciseDone() ? 'Continuar cardio' : cardioSeconds() > 0 ? 'Retomar cardio' : 'Iniciar cardio' }}</button>
+              @if (!exerciseDone() && cardioSeconds() > 0) { <button appButton variant="secondary" [disabled]="working()" (click)="cardio('finish')">Encerrar cardio</button> }
+            }
+          </div>
+          <p class="muted small">{{ item.cardio?.startedAt != null ? 'O tempo continua contando se você fechar o app. Pause quando precisar.' : 'O tempo só começa quando você toca em Iniciar cardio. Trocar de exercício pausa o cronômetro.' }}</p>
+        </section>
+      }
+      @if (exerciseDone() && nextPending() >= 0) { <button appButton class="full next-button" [disabled]="working()" (click)="navigate(nextPending())">{{ session.exercises[nextPending()].deferred ? '↩ Retomar exercício pendente' : 'Próximo exercício →' }}</button> }
+      @if (complete()) { <button appButton class="full next-button" [disabled]="working() || store.saving() || !!store.error()" (click)="finish()">Finalizar treino</button> }
+    </app-panel>
+  }
+  <p class="muted small">O andamento é salvo automaticamente. Você pode sair e retomar por aqui. A sequência só avança ao finalizar.</p>
+} @else if (store.next(); as workout) {
+  <app-panel tone="gold"><p class="eyebrow">PRÓXIMO DA SEQUÊNCIA</p><h2 class="workout-name">{{ workout.name }}</h2><p class="muted">{{ workout.exercises.length }} {{ workout.exercises.length === 1 ? 'exercício' : 'exercícios' }} @if (sets(workout)) { · {{ sets(workout) }} {{ sets(workout) === 1 ? 'série' : 'séries' }} } @if (cardioCount(workout)) { · {{ cardioCount(workout) }} cardio }</p>@if (muscles(workout).length) { <app-muscle-map [muscles]="muscles(workout)" /> } @else { <p class="notice">Cardio por tempo, com cronômetro próprio para cada exercício.</p> }<button appButton class="full" [disabled]="working() || store.saving() || !!store.error()" (click)="start()">▶ Começar</button></app-panel>
+  <section class="upcoming"><h2>Seu roteiro</h2>@for (exercise of workout.exercises; track exercise.id; let i = $index) { <div><span>{{ i + 1 }}. {{ exercise.name }}</span><small>{{ exercise.kind === 'cardio' ? 'Cardio por tempo' : exercise.sets + (exercise.sets === 1 ? ' série' : ' séries') }}</small></div> }</section>
+} @else {
+  <app-panel tone="gold"><p class="eyebrow">SEU PRIMEIRO PASSO</p><h2>Qual é o seu treino?</h2><p class="muted">Cadastre seus treinos na ordem que você quer seguir. O próximo da sequência aparecerá aqui.</p><a class="action-link" routerLink="/treinos">Criar meu primeiro treino →</a></app-panel>
+}
+
+
+

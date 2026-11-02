@@ -1,0 +1,9 @@
+.figures { display: flex; justify-content: center; gap: 28px; padding: 12px 0; }
+figure { margin: 0; text-align: center; }
+svg { width: 95px; height: 200px; shape-rendering: crispEdges; }
+.body { fill: #20302d; stroke: var(--border); stroke-width: 1; }
+g { fill: #3a5045; stroke: #1b2928; stroke-width: 1; }
+g.active { fill: var(--green); stroke: #17251a; }
+figcaption { font-size: 11px; color: var(--muted); }
+.legend { text-align: center; color: var(--green); font-size: 12px; margin-bottom: 8px; }
+.legend small { display: block; color: var(--muted); font-size: 10px; margin-top: 6px; }

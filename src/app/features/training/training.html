@@ -1,0 +1,69 @@
+<h1>Treinos</h1>
+<dialog #deleteDialog class="delete-dialog" aria-labelledby="delete-title" aria-describedby="delete-description" (cancel)="$event.preventDefault(); cancelDelete()">
+  <p class="eyebrow">{{ usedBy().length ? 'EXERCÍCIO EM USO' : 'CONFIRMAR EXCLUSÃO' }}</p>
+  <h2 id="delete-title">{{ usedBy().length ? 'Este exercício está em uso' : deletion()?.kind === 'workout' ? 'Excluir treino?' : 'Excluir exercício?' }}</h2>
+  <p class="delete-name">{{ deletion()?.name }}</p>
+  <p id="delete-description">{{ usedBy().length ? 'Remova este exercício dos treinos abaixo antes de excluí-lo da biblioteca.' : deletion()?.kind === 'workout' ? 'O treino será removido da sequência. Os exercícios da biblioteca e o histórico serão preservados.' : 'O exercício será removido da biblioteca. Os registros do histórico serão preservados.' }}</p>
+  @if (usedBy().length) { <ul>@for (name of usedBy(); track name) { <li>{{ name }}</li> }</ul> }
+  @else { <p class="muted small">Esta ação não pode ser desfeita.</p> }
+  @if (deleteError()) { <p class="notice notice--danger" role="alert">{{ deleteError() }}</p> }
+  <div class="dialog-actions"><button appButton variant="ghost" autofocus [disabled]="deleting()" (click)="cancelDelete()">{{ usedBy().length ? 'Voltar' : 'Cancelar' }}</button>@if (!usedBy().length) { <button appButton variant="danger" [disabled]="deleting() || store.saving() || !!store.state().active" (click)="confirmDelete()">{{ deleting() ? 'Excluindo…' : 'Excluir' }}</button> }</div>
+</dialog>
+@if (!store.ready()) {
+  <p role="status">Carregando seus treinos…</p>
+  @if (store.error()) { <p class="notice notice--danger" role="alert">{{ store.error() }} <button appButton variant="ghost" (click)="store.load()">Tentar novamente</button></p> }
+} @else {
+  @if (store.error()) { <p class="notice notice--danger" role="alert">{{ store.error() }} <button appButton variant="ghost" (click)="store.retry()">Tentar salvar</button></p> }
+  @if (store.state().active) { <p class="notice">Há um treino em andamento. A sequência fica protegida até você finalizá-lo. <a routerLink="/hoje">Retomar treino</a></p> }
+  <div class="tabs" role="group" aria-label="Áreas de treinos"><button type="button" [attr.aria-pressed]="tab() === 'workouts'" (click)="show('workouts')">Meus treinos</button><button type="button" [attr.aria-pressed]="tab() === 'exercises'" (click)="show('exercises')">Exercícios</button></div>
+  @if (tab() === 'exercises') {
+    @if (catalogDraft(); as exercise) {
+      <app-panel><h2>{{ catalogEditing() ? 'Editar exercício' : 'Novo exercício' }}</h2><form class="stack" (submit)="saveCatalog($event)">
+        <app-field controlId="catalog-name" label="Nome do exercício"><input id="catalog-name" required maxlength="80" [value]="exercise.name" (input)="catalogName($any($event.target).value)"></app-field>
+        <app-field controlId="catalog-kind" label="Tipo de exercício"><select id="catalog-kind" [value]="exercise.kind || 'strength'" (change)="catalogKind($any($event.target).value)"><option value="strength" [selected]="exercise.kind !== 'cardio'">Musculação</option><option value="cardio" [selected]="exercise.kind === 'cardio'">Cardio</option></select></app-field>@if (exercise.kind !== 'cardio') { <app-field controlId="catalog-muscle" label="Grupo muscular alvo"><select id="catalog-muscle" [value]="exercise.muscle" (change)="catalogMuscle($any($event.target).value)">@for (muscle of muscles; track muscle) { <option [selected]="muscle === exercise.muscle">{{ muscle }}</option> }</select></app-field> } @else { <p class="notice">Cardio usa um cronômetro próprio, sem séries, carga ou repetições.</p> }
+        @if (catalogEditing()) { <p class="muted small">As alterações serão aplicadas aos treinos que usam este exercício. Os registros do histórico serão preservados.</p> }
+        @if (error()) { <p class="notice notice--danger" role="alert">{{ error() }}</p> }
+        <div class="actions"><button appButton type="submit" [disabled]="store.saving() || !!store.state().active">Salvar exercício</button><button appButton variant="ghost" (click)="catalogDraft.set(null); error.set('')">Cancelar</button></div>
+      </form></app-panel>
+    } @else {
+      <p class="muted">Cadastre seus exercícios aqui. Depois, reutilize-os na montagem dos treinos.</p>
+      <div class="stack"><button appButton [disabled]="!!store.state().active || store.saving()" (click)="newCatalogExercise()">+ Cadastrar exercício</button>
+        @for (exercise of store.state().catalog; track exercise.id) { <app-panel><div class="between"><div><h2>{{ exercise.name }}</h2><app-badge tone="muted">{{ exercise.kind === 'cardio' ? 'Cardio · por tempo' : exercise.muscle }}</app-badge></div><div class="actions"><button appButton variant="ghost" [disabled]="!!store.state().active || store.saving()" (click)="editCatalogExercise(exercise)" [attr.aria-label]="'Editar ' + exercise.name">Editar</button><button appButton class="delete-button" variant="danger" [disabled]="!!store.state().active || store.saving()" (click)="askDelete('exercise', exercise.id, exercise.name)" [attr.aria-label]="'Excluir exercício ' + exercise.name" title="Excluir exercício"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3h8v3h5v3H3V6h5zM6 11h12v10H6z"/><path class="trash-slots" d="M9 13v5m6-5v5"/></svg></button></div></div></app-panel> }
+        @empty { <app-panel><h2>Sua biblioteca começa aqui.</h2><p class="muted">Nenhum exercício cadastrado ainda.</p></app-panel> }
+      </div>
+    }
+  } @else {
+  @if (editing(); as draft) {
+    <app-panel><h2>{{ originalId() ? 'Editar treino' : 'Novo treino' }}</h2>
+      <form (submit)="save($event)" class="stack">
+        <app-field controlId="workout-name" label="Nome do treino"><input id="workout-name" required maxlength="80" [value]="draft.name" (input)="name($any($event.target).value)" placeholder="Nome do seu treino"></app-field>
+        @for (exercise of draft.exercises; track exercise.id; let i = $index) {
+          <fieldset><legend>Exercício {{ i + 1 }}</legend><div class="stack">
+            <app-field [controlId]="'exercise-' + exercise.id" label="Exercício cadastrado"><select [id]="'exercise-' + exercise.id" [value]="exercise.id" (change)="selectExercise(i, $any($event.target).value)">@for (option of store.state().catalog; track option.id) { <option [value]="option.id" [selected]="option.id === exercise.id" [disabled]="selectedElsewhere(option.id, i)">{{ option.name }} · {{ option.kind === 'cardio' ? 'Cardio' : option.muscle }}</option> }</select></app-field>
+            @if (exercise.kind !== 'cardio') { <div class="two-columns"><app-field [controlId]="'sets-' + exercise.id" label="Séries"><input [id]="'sets-' + exercise.id" required type="number" inputmode="numeric" min="1" max="20" step="1" [value]="exercise.sets" (input)="change(i, 'sets', $any($event.target).value)"></app-field><app-field [controlId]="'rest-' + exercise.id" label="Descanso (segundos)"><input [id]="'rest-' + exercise.id" required type="number" inputmode="numeric" min="0" max="1800" step="1" [value]="exercise.restSeconds" (input)="change(i, 'restSeconds', $any($event.target).value)"></app-field></div> } @else { <p class="notice">Cardio por tempo. Inicie e encerre o cronômetro durante o treino.</p> }
+            <div class="actions"><button appButton variant="ghost" [disabled]="i === 0" (click)="moveExercise(i, -1)" [attr.aria-label]="'Mover exercício ' + (i + 1) + ' para cima'">↑</button><button appButton variant="ghost" [disabled]="i === draft.exercises.length - 1" (click)="moveExercise(i, 1)" [attr.aria-label]="'Mover exercício ' + (i + 1) + ' para baixo'">↓</button><button appButton variant="danger" (click)="remove(i)">Remover</button></div>
+          </div></fieldset>
+        }
+        @if (!store.state().catalog.length) { <p class="notice">Primeiro, cadastre seus exercícios na biblioteca.</p> }
+        <div class="actions"><button appButton variant="ghost" (click)="addExercise()" [disabled]="!available() || draft.exercises.length >= 30">+ Selecionar exercício</button><button appButton variant="ghost" (click)="show('exercises')">Ir para exercícios</button></div>
+        @if (error()) { <p class="notice notice--danger" role="alert">{{ error() }}</p> }
+        <div class="actions"><button appButton type="submit" [disabled]="!draft.exercises.length || store.saving() || !!store.state().active">Salvar treino</button><button appButton variant="ghost" (click)="editing.set(null); error.set('')">Cancelar</button></div>
+      </form>
+    </app-panel>
+  } @else {
+    <p class="muted">A ordem abaixo define sua sequência. Ela avança somente quando você finaliza um treino.</p>
+    <div class="stack">
+      @for (workout of store.state().workouts; track workout.id; let i = $index) {
+        <app-panel><div class="between"><h2>{{ i + 1 }}. {{ workout.name }}</h2>@if (store.next()?.id === workout.id) { <app-badge>Próximo</app-badge> }</div><p class="muted small">{{ workout.exercises.length }} {{ workout.exercises.length === 1 ? 'exercício' : 'exercícios' }} @if (totalSets(workout)) { · {{ totalSets(workout) }} {{ totalSets(workout) === 1 ? 'série' : 'séries' }} } @if (cardioCount(workout)) { · {{ cardioCount(workout) }} cardio }</p><div class="exercise-names">@for (exercise of workout.exercises; track exercise.id) { <p>{{ exercise.name }} <span class="muted">· {{ exercise.kind === 'cardio' ? 'Cardio por tempo' : exercise.sets + (exercise.sets === 1 ? ' série' : ' séries') }}</span></p> }</div>
+          <div class="actions"><button appButton variant="ghost" [disabled]="!!store.state().active || store.saving()" (click)="edit(workout)">Editar</button><button appButton class="delete-button" variant="danger" [disabled]="!!store.state().active || store.saving()" (click)="askDelete('workout', workout.id, workout.name)" [attr.aria-label]="'Excluir treino ' + workout.name" title="Excluir treino"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3h8v3h5v3H3V6h5zM6 11h12v10H6z"/><path class="trash-slots" d="M9 13v5m6-5v5"/></svg></button><button appButton variant="ghost" [disabled]="i === 0 || !!store.state().active || store.saving()" (click)="store.moveWorkout(workout.id, -1)" [attr.aria-label]="'Mover ' + workout.name + ' para cima'">↑</button><button appButton variant="ghost" [disabled]="i === store.state().workouts.length - 1 || !!store.state().active || store.saving()" (click)="store.moveWorkout(workout.id, 1)" [attr.aria-label]="'Mover ' + workout.name + ' para baixo'">↓</button></div>
+        </app-panel>
+      } @empty { <app-panel><h2>Sua sequência começa aqui.</h2><p class="muted">Cadastre os exercícios na aba Exercícios e selecione-os ao montar seu primeiro treino.</p></app-panel> }
+      <button appButton [disabled]="!!store.state().active || store.saving()" (click)="create()">+ Criar treino</button>
+    </div>
+  }
+  }
+}
+
+
+
+

@@ -1,0 +1,24 @@
+import 'fake-indexeddb/auto';
+import { deleteDB } from 'idb';
+import { expect, it } from 'vitest';
+import { openLocalDatabase } from '../storage/local-database';
+import { applyRoutineImport, createRoutineBackup, readRoutineBackup } from './routine-backup';
+import { emptyTrainingState } from './training.models';
+import { createSession } from './training.domain';
+it('persiste substituição completa preservando preferências e histórico', async () => {
+  const name = crypto.randomUUID(), db = await openLocalDatabase(name);
+  const definition = { id: 'old-ex', name: 'Supino', muscle: 'Peito' as const };
+  const workout = { id: 'old-w', name: 'Antigo', exercises: [{ ...definition, sets: 3, restSeconds: 60 }] };
+  const active = createSession(workout, 1, 's');
+  const original = { ...emptyTrainingState(), catalog: [definition], workouts: [workout], active, history: [{ ...active, finishedAt: 100 }], nextWorkoutId: workout.id };
+  await db.put('training', original, 'state'); await db.put('settings', { key: 'theme', value: 'dark' });
+  const nextDefinition = { id: 'bike', name: 'Bicicleta', kind: 'cardio' as const };
+  const plan = { catalog: [nextDefinition], workouts: [{ id: 'new-w', name: 'Novo', exercises: [{ ...nextDefinition, sets: 0, restSeconds: 0 }] }], nextWorkoutId: 'new-w' };
+  const parsed = readRoutineBackup('\uFEFF' + JSON.stringify(createRoutineBackup(plan)));
+  await db.put('training', applyRoutineImport(original, parsed), 'state'); db.close();
+  const reopened = await openLocalDatabase(name), imported = (await reopened.get('training', 'state'))!;
+  expect(imported.catalog).toHaveLength(1); expect(imported.catalog[0].name).toBe('Bicicleta');
+  expect(imported.workouts[0].name).toBe('Novo'); expect(imported.active).toBeNull(); expect(imported.history).toEqual(original.history);
+  expect((await reopened.get('settings', 'theme'))?.value).toBe('dark');
+  reopened.close(); await deleteDB(name);
+});

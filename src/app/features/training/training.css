@@ -1,0 +1,22 @@
+:host { display: block; }
+.delete-button { min-width: 48px; width: 48px; height: 48px; padding: 10px; flex-shrink: 0; }
+.delete-button svg { width: 22px; height: 22px; fill: currentColor; shape-rendering: crispEdges; }
+.delete-button .trash-slots { fill: none; stroke: #492d30; stroke-width: 2; }
+.delete-dialog { position: fixed; inset: auto 0 calc(12px + env(safe-area-inset-bottom)); margin: 0 auto; width: min(440px, calc(100% - 24px)); max-height: calc(100dvh - 40px); overflow: auto; padding: 24px 20px; color: var(--text); background: var(--surface); border: 2px solid var(--gold); box-shadow: var(--pixel-shadow); }
+.delete-dialog { height: fit-content; }
+.delete-dialog::backdrop { background: #050b0dde; }
+.delete-dialog h2 { line-height: 2; }.delete-dialog p, .delete-dialog li { overflow-wrap: anywhere; }
+.delete-name { font-weight: 750; color: var(--gold); }.delete-dialog p:not(.eyebrow) { font-size: 14px; }
+.dialog-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 14px; margin-top: 24px; }
+@media (min-width: 600px) { .delete-dialog { inset: 0; margin: auto; } }
+.tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 28px; }
+.tabs button { min-height: 48px; padding: 12px; border: 2px solid var(--border); background: var(--surface); color: var(--muted); cursor: pointer; font-size: 14px; border-radius: 0; }
+.tabs button[aria-pressed='true'] { color: var(--green); border-color: var(--green); background: var(--green-dark); }
+.stack { display: grid; gap: 22px; }
+.two-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.actions, .between { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.between { justify-content: space-between; }.between h2 { margin-bottom: 0; }
+fieldset { min-width: 0; border: 1px solid var(--border); padding: 18px 12px; margin: 0; }
+legend { color: var(--gold); font-size: 13px; padding: 0 8px; }
+.small, .exercise-names { font-size: 13px; }.exercise-names p { margin-bottom: 8px; }
+.exercise-names { margin-bottom: 22px; }

@@ -1,0 +1,12 @@
+:host { display: block; max-width: 680px; margin: auto; }
+.action-link { display: inline-flex; align-items: center; min-height: 44px; color: var(--gold); font-size: 14px; }
+.settings-stack { display: grid; gap: 28px; }
+.download-list { display: grid; gap: 12px; margin-top: 22px; }.download-list a { display: flex; align-items: center; min-height: 48px; border: 1px solid var(--border); padding: 12px; overflow-wrap: anywhere; font-size: 13px; }
+.file-name { overflow-wrap: anywhere; color: var(--gold); }.import-dialog { border-color: var(--gold); }
+input[type='file'] { font-size: 13px; padding: 12px; }input[type='file']::file-selector-button { min-height: 44px; margin-right: 12px; border: 1px solid var(--border); background: var(--surface-raised); color: var(--text); padding: 10px; font: inherit; }
+.reset-button { width: 100%; margin-top: 16px; }
+.muted { font-size: 14px; }.small { font-size: 12px; }
+dialog { position: fixed; inset: auto 0 calc(12px + env(safe-area-inset-bottom)); width: min(460px, calc(100% - 24px)); height: fit-content; max-height: calc(100dvh - 40px); margin: 0 auto; padding: 24px 20px; overflow: auto; border: 2px solid var(--danger); background: var(--surface); color: var(--text); box-shadow: var(--pixel-shadow); }
+dialog::backdrop { background: #050b0dde; }dialog h2 { line-height: 2; }dialog p, dialog li { font-size: 14px; }dialog ul { padding-left: 20px; }dialog li { margin: 8px 0; }
+.dialog-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 24px; }
+@media(min-width:600px) { dialog { inset: 0; margin: auto; } }

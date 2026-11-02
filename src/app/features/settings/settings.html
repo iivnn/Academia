@@ -1,0 +1,65 @@
+<h1>Configurações</h1>
+@if (operationError()) { <p class="notice notice--danger" role="alert">{{ operationError() }} Nenhum dado foi alterado por esta operação.</p> }
+@if (notice()) { <p class="notice notice--success" role="status">{{ notice() }}</p> }
+<div class="settings-stack">
+<app-panel>
+  <p class="eyebrow">LEVAR SUA ROTINA</p><h2>Exportar treinos</h2>
+  <p>Exporte toda a biblioteca, os treinos, as séries, os descansos e a ordem da sequência.</p>
+  <p class="notice">JSON permite importar a rotina. PDF e imagem são versões para consultar ou compartilhar. O histórico de resultados e a sessão em andamento não são incluídos.</p>
+  <app-field controlId="export-format" label="Formato"><select id="export-format" [value]="format()" (change)="setFormat($any($event.target).value)" [disabled]="exporting()"><option value="json">JSON - para importar</option><option value="pdf">PDF - documento</option><option value="image">Imagem - PNG</option></select></app-field>
+  <button appButton class="reset-button" [disabled]="!store.ready() || !store.state().workouts.length || store.saving() || store.resetting() || exporting()" (click)="export()">{{ exporting() ? 'Preparando…' : 'Exportar rotina' }}</button>
+  @if (store.ready() && !store.state().workouts.length) { <p class="muted small">Cadastre pelo menos um treino para exportar.</p> }
+  @if (files().length) { <div class="download-list" aria-label="Arquivos exportados">@for (file of files(); track file.url) { <a [href]="file.url" [download]="file.name">↓ Baixar {{ file.name }}</a> }</div> }
+</app-panel>
+<app-panel>
+  <p class="eyebrow">CARREGAR UMA ROTINA</p><h2>Importar treinos</h2>
+  <p>Selecione um JSON exportado pelo Academia. O arquivo será validado antes de pedir sua confirmação.</p>
+  <p class="notice">A importação substitui todos os treinos e a biblioteca atual, sem mesclar. Uma sessão em andamento será encerrada sem salvar novos resultados. Exporte a rotina atual antes de continuar se quiser guardá-la.</p>
+  <app-field controlId="import-json" label="Arquivo JSON (até 2 MB)"><input id="import-json" type="file" accept=".json,application/json" [disabled]="!store.ready() || store.resetting() || store.saving() || reading() || exporting()" (change)="readImport($event)"></app-field>
+  @if (reading()) { <p role="status">Validando arquivo…</p> }
+</app-panel>
+@if (success()) { <p class="notice notice--success" role="status">Todos os dados foram apagados. O Academia está pronto para começar de novo. <a routerLink="/hoje">Voltar ao início</a></p> }
+<app-panel>
+  <p class="eyebrow">DADOS DO APLICATIVO</p>
+  <h2>Começar do zero</h2>
+  <p>Apague todos os exercícios, treinos, registros, histórico e preferências salvas neste navegador.</p>
+  <p class="muted">O treino em andamento também será apagado. Esta ação não pode ser desfeita.</p>
+  <button appButton variant="danger" class="reset-button" [disabled]="store.resetting()" (click)="openReset()">Apagar todos os dados</button>
+</app-panel>
+<app-panel tone="gold">
+  <p class="eyebrow">SOMENTE PARA TESTES</p><h2>Explorar com dados fictícios</h2>
+  <p>Carregue 180 sessões concluídas, 3 treinos e 14 exercícios de musculação e cardio, distribuídos por quase um ano.</p>
+  <p class="muted">A base tem progressão de cargas, variação de repetições, mudanças na quantidade de séries, períodos de queda e tempos diferentes de cardio.</p>
+  <p class="notice notice--danger">Isso apaga todos os dados atuais, incluindo histórico e preferências, e os substitui pela base fictícia. Não pode ser desfeito. A exportação JSON de rotina não guarda seu histórico.</p>
+  @if (store.state().testData) { <p class="notice">A base de testes está ativa. Carregar novamente recria os dados e apaga as alterações feitas desde então.</p><a class="action-link" routerLink="/evolucao">Abrir Evolução →</a> }
+  <button appButton variant="secondary" class="reset-button" [disabled]="store.resetting() || store.saving() || exporting() || reading()" (click)="openSeed()">Carregar dados de teste</button>
+</app-panel>
+</div>
+<dialog #seedDialog class="import-dialog" aria-labelledby="seed-title" aria-describedby="seed-description" (cancel)="$event.preventDefault(); cancelSeed()">
+  <p class="eyebrow">SUBSTITUIR TODOS OS DADOS</p><h2 id="seed-title">Usar a base fictícia?</h2>
+  <p id="seed-description">Todos os exercícios, treinos, registros, sessão em andamento, histórico e preferências atuais serão apagados definitivamente.</p>
+  <p>Serão criados 180 treinos concluídos com musculação e cardio, 14 exercícios e uma sequência de 3 treinos. Os números são apenas simulações para testar a interface.</p>
+  <p class="muted small">Não é possível desfazer. O JSON de rotina não é um backup do histórico.</p>
+  @if (seedError()) { <p class="notice notice--danger" role="alert">{{ seedError() }}</p> }
+  <div class="dialog-actions"><button appButton variant="ghost" autofocus [disabled]="store.resetting()" (click)="cancelSeed()">Cancelar</button><button appButton variant="danger" [disabled]="store.resetting()" (click)="confirmSeed()">{{ store.resetting() ? 'Carregando…' : 'Apagar e carregar' }}</button></div>
+</dialog>
+<dialog #importDialog class="import-dialog" aria-labelledby="import-title" aria-describedby="import-description" (cancel)="$event.preventDefault(); cancelImport()">
+  <p class="eyebrow">CONFIRMAR SUBSTITUIÇÃO</p><h2 id="import-title">Usar a rotina importada?</h2>
+  <p class="file-name">{{ importFileName() }}</p>
+  @if (importPlan(); as plan) {
+    <p>{{ plan.workouts.length }} treino(s) e {{ plan.catalog.length }} exercício(s).</p><ul>@for (workout of plan.workouts.slice(0, 5); track workout.id) { <li>{{ workout.name }}</li> }</ul>@if (plan.workouts.length > 5) { <p class="small muted">E mais {{ plan.workouts.length - 5 }} treino(s).</p> }
+  }
+  <p id="import-description">A rotina atual e a biblioteca serão substituídas. O treino em andamento será descartado. O histórico e as preferências serão preservados; os novos treinos terão novas referências de evolução.</p>
+  <p class="muted small">Esta substituição não pode ser desfeita pelo aplicativo. Guarde uma exportação JSON da rotina atual.</p>
+  @if (importError()) { <p class="notice notice--danger" role="alert">{{ importError() }}</p> }
+  <div class="dialog-actions"><button appButton variant="ghost" autofocus [disabled]="store.resetting()" (click)="cancelImport()">Cancelar</button><button appButton variant="secondary" [disabled]="store.resetting() || !importPlan()" (click)="confirmImport()">{{ store.resetting() ? 'Importando…' : 'Substituir rotina' }}</button></div>
+</dialog>
+<dialog #resetDialog aria-labelledby="reset-title" aria-describedby="reset-description" (cancel)="$event.preventDefault(); cancelReset()">
+  <p class="eyebrow">CONFIRMAR RESET</p>
+  <h2 id="reset-title">Apagar tudo?</h2>
+  <p id="reset-description">Todos os dados do Academia neste navegador serão apagados definitivamente:</p>
+  <ul><li>Biblioteca de exercícios</li><li>Treinos e sequência</li><li>Sessão em andamento e cronômetros</li><li>Histórico, cargas, repetições e tempos de cardio</li><li>Preferências salvas</li></ul>
+  <p class="muted small">Não será possível recuperar esses registros pelo aplicativo.</p>
+  @if (error()) { <p class="notice notice--danger" role="alert">{{ error() }}</p> }
+  <div class="dialog-actions"><button appButton variant="ghost" autofocus [disabled]="store.resetting()" (click)="cancelReset()">Cancelar</button><button appButton variant="danger" [disabled]="store.resetting()" (click)="confirmReset()">{{ store.resetting() ? 'Apagando…' : 'Apagar tudo' }}</button></div>
+</dialog>

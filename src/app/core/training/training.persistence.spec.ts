@@ -1,0 +1,26 @@
+import 'fake-indexeddb/auto';
+import { deleteDB, openDB } from 'idb';
+import { expect, it } from 'vitest';
+import { openLocalDatabase } from '../storage/local-database';
+import { createSession, finishSession } from './training.domain';
+import { emptyTrainingState, Workout } from './training.models';
+it('migra v1 preservando settings e recupera sessão com descanso e campos parciais', async () => {
+  const name = crypto.randomUUID();
+  const legacy = await openDB(name, 1, { upgrade(db) { db.createObjectStore('settings', { keyPath: 'key' }); } });
+  await legacy.put('settings', { key: 'initializedAt', value: 'preservado' }); legacy.close();
+  const db = await openLocalDatabase(name);
+  const workout: Workout = { id: 'w', name: 'Real', exercises: [{ id: 'e', name: 'Agachamento', muscle: 'Quadríceps', sets: 1, restSeconds: 90 }] };
+  const active = createSession(workout, 1000, 'session'); active.restUntil = 91000; active.exercises[0].records[0].weight = '12,5';
+  const state = { ...emptyTrainingState(), workouts: [workout], nextWorkoutId: 'w', active };
+  await db.put('training', state, 'state'); db.close();
+  const reopened = await openLocalDatabase(name);
+  expect((await reopened.get('settings', 'initializedAt'))?.value).toBe('preservado');
+  const recovered = (await reopened.get('training', 'state'))!;
+  expect(recovered.active?.restUntil).toBe(91000); expect(recovered.active?.startedAt).toBe(1000);
+  expect(recovered.active?.exercises[0].records[0].weight).toBe('12,5');
+  recovered.active!.exercises[0].records[0] = { weight: '12,5', reps: '10', done: true };
+  await reopened.put('training', finishSession(recovered, 2000), 'state');
+  const finished = (await reopened.get('training', 'state'))!;
+  expect(finished.active).toBeNull(); expect(finished.history).toHaveLength(1);
+  reopened.close(); await deleteDB(name);
+});

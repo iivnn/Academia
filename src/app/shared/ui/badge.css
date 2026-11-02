@@ -1,0 +1,4 @@
+:host { display: inline-flex; align-items: center; min-height: 28px; padding: 4px 8px; background: var(--green-dark); border: 1px solid #5c8158; color: var(--green); font: 11px/1.4 var(--body-font); font-weight: 700; }
+:host([data-tone='gold']) { background: #3b3320; border-color: #927c46; color: var(--gold); }
+:host([data-tone='muted']) { background: var(--surface-input); border-color: var(--border); color: var(--muted); }
+:host([data-tone='danger']) { background: #492d30; border-color: #a86b67; color: var(--danger); }
