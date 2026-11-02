@@ -6,3 +6,26 @@
 /tmp
 *.log
 .DS_Store
+
+# Configurações e credenciais locais
+.env
+.env.*
+!.env.example
+.npmrc
+*.local
+*.pem
+*.key
+*.p12
+*.pfx
+/.vscode/settings.json
+/*.code-workspace
+Thumbs.db
+Desktop.ini
+
+# Dados pessoais exportados e backups locais
+/exports
+/backups
+/output
+academia-rotina-*.json
+academia-rotina-*.pdf
+academia-rotina-*.png
